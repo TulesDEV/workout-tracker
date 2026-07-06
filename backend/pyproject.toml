@@ -9,6 +9,7 @@ dependencies = [
     "drf-spectacular>=0.28",
     "django-unfold>=0.43.0",
     "django-cors-headers>=4.4",
+    "dj-database-url>=2.3",
     "gunicorn>=26.0.0",
     "whitenoise>=6.12.0",
 ]
