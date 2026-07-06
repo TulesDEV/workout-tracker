@@ -6,7 +6,12 @@ import type {
   WorkoutSession,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Strip any trailing slash so a NEXT_PUBLIC_API_URL set with or without one
+// both work - every path below already starts with its own leading slash.
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(
+  /\/+$/,
+  ""
+);
 
 export class ApiError extends Error {
   status: number;
