@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { EXERCISE_CATEGORIES } from "@/lib/types";
 import type { Exercise, ExerciseCategory } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CategoryBadge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
@@ -87,11 +88,17 @@ function ExerciseRow({
   onMutate: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function remove() {
     if (!confirm(`Delete "${exercise.name}"?`)) return;
-    await api.exercises.remove(exercise.id);
-    onMutate();
+    setError(null);
+    try {
+      await api.exercises.remove(exercise.id);
+      onMutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   if (editing) {
@@ -108,24 +115,27 @@ function ExerciseRow({
   }
 
   return (
-    <Card className="flex items-center justify-between gap-2">
-      <div>
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium">{exercise.name}</p>
-          <CategoryBadge category={exercise.category} />
+    <Card className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">{exercise.name}</p>
+            <CategoryBadge category={exercise.category} />
+          </div>
+          {exercise.equipment && (
+            <p className="text-xs text-muted">{exercise.equipment}</p>
+          )}
         </div>
-        {exercise.equipment && (
-          <p className="text-xs text-muted">{exercise.equipment}</p>
-        )}
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="danger" onClick={remove}>
+            Delete
+          </Button>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-          Edit
-        </Button>
-        <Button size="sm" variant="danger" onClick={remove}>
-          Delete
-        </Button>
-      </div>
+      <ErrorMessage message={error} />
     </Card>
   );
 }
@@ -146,10 +156,12 @@ function ExerciseForm({
   const [equipment, setEquipment] = useState(exercise?.equipment ?? "");
   const [notes, setNotes] = useState(exercise?.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
     if (!name.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const data = { name, category, equipment, notes };
       if (exercise) {
@@ -158,6 +170,8 @@ function ExerciseForm({
         await api.exercises.create(data);
       }
       onSaved();
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -190,6 +204,7 @@ function ExerciseForm({
         <Label>Notes (optional)</Label>
         <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
+      <ErrorMessage message={error} />
       <div className="flex gap-2">
         <Button size="sm" onClick={submit} disabled={!name.trim() || saving}>
           {saving ? "Saving..." : "Save"}

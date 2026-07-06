@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
@@ -25,10 +26,12 @@ export function AddProgramExercise({
   const [repsMax, setRepsMax] = useState("12");
   const [weight, setWeight] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
     if (!exerciseId) return;
     setSaving(true);
+    setError(null);
     try {
       await api.programExercises.create({
         program: programId,
@@ -40,6 +43,8 @@ export function AddProgramExercise({
         target_weight_kg: weight || null,
       });
       onAdded();
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -98,6 +103,8 @@ export function AddProgramExercise({
           onChange={(e) => setWeight(e.target.value)}
         />
       </div>
+
+      <ErrorMessage message={error} />
 
       <div className="flex gap-2">
         <Button size="sm" onClick={submit} disabled={!exerciseId || saving}>

@@ -4,18 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { describeRecurrence, formatDateOnly, isProgramDueOn } from "@/lib/recurrence";
 import type { Program, WorkoutSession } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusBadge } from "@/components/ui/badge";
 
 export function TodayView() {
   const router = useRouter();
   const today = formatDateOnly(new Date());
   const [startingProgramId, setStartingProgramId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: activePrograms, isLoading } = useSWR("active-programs", () =>
     api.programs.list({ is_active: true })
@@ -52,10 +54,12 @@ export function TodayView() {
 
   async function startSession(program: Program) {
     setStartingProgramId(program.id);
+    setError(null);
     try {
       const session = await api.sessions.create({ program: program.id });
       router.push(`/session/${session.id}`);
-    } finally {
+    } catch (err) {
+      setError(getErrorMessage(err));
       setStartingProgramId(null);
     }
   }
@@ -63,6 +67,8 @@ export function TodayView() {
   return (
     <div className="flex flex-col gap-6">
       <Header today={today} />
+
+      <ErrorMessage message={error} />
 
       {duePrograms.length === 0 && (
         <EmptyState

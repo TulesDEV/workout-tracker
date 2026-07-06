@@ -19,6 +19,29 @@ export class ApiError extends Error {
   }
 }
 
+/** Turns a thrown error from an `api.*` call into a short, user-facing message. */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    try {
+      const parsed = JSON.parse(error.body);
+      const fieldErrors = Object.values(parsed).flat().join(" ");
+      if (fieldErrors) return fieldErrors;
+    } catch {
+      // body wasn't JSON - fall through to a generic status-based message
+    }
+    if (error.status === 404) return "Not found.";
+    if (error.status >= 500) return "Server error — please try again.";
+    return `Request failed (${error.status}).`;
+  }
+  if (error instanceof TypeError) {
+    // fetch() rejects with a TypeError for network failures and CORS blocks,
+    // never reaching the ApiError path since no response comes back at all.
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  if (error instanceof Error) return error.message;
+  return "Something went wrong.";
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,

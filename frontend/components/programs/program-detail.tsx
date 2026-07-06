@@ -3,12 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { describeRecurrence } from "@/lib/recurrence";
 import type { Program } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CategoryBadge } from "@/components/ui/badge";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input, Textarea } from "@/components/ui/input";
 import { AddProgramExercise } from "@/components/programs/add-program-exercise";
 import { RecurrenceEditor } from "@/components/programs/recurrence-editor";
@@ -22,6 +23,7 @@ export function ProgramDetail({ programId }: { programId: number }) {
   const [addingExercise, setAddingExercise] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   if (!program) {
     return <p className="text-sm text-muted">Loading...</p>;
@@ -36,52 +38,84 @@ export function ProgramDetail({ programId }: { programId: number }) {
   }
 
   async function saveDetails() {
-    await api.programs.update(program!.id, { name, description });
-    setEditingDetails(false);
-    mutate();
+    setError(null);
+    try {
+      await api.programs.update(program!.id, { name, description });
+      setEditingDetails(false);
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function saveRecurrence(
     data: Pick<Program, "recurrence_type" | "weekdays" | "interval_days" | "anchor_date">
   ) {
-    await api.programs.update(program!.id, data);
-    setEditingRecurrence(false);
-    mutate();
+    setError(null);
+    try {
+      await api.programs.update(program!.id, data);
+      setEditingRecurrence(false);
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function toggleActive() {
-    if (program!.is_active) {
-      await api.programs.deactivate(program!.id);
-    } else {
-      await api.programs.activate(program!.id);
+    setError(null);
+    try {
+      if (program!.is_active) {
+        await api.programs.deactivate(program!.id);
+      } else {
+        await api.programs.activate(program!.id);
+      }
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
     }
-    mutate();
   }
 
   async function removeProgram() {
     if (!confirm(`Delete "${program!.name}"?`)) return;
-    await api.programs.remove(program!.id);
-    router.push("/programs");
+    setError(null);
+    try {
+      await api.programs.remove(program!.id);
+      router.push("/programs");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function removeExercise(id: number) {
-    await api.programExercises.remove(id);
-    mutate();
+    setError(null);
+    try {
+      await api.programExercises.remove(id);
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function move(index: number, direction: -1 | 1) {
     const target = sortedExercises[index + direction];
     const current = sortedExercises[index];
     if (!target) return;
-    await Promise.all([
-      api.programExercises.update(current.id, { order: target.order }),
-      api.programExercises.update(target.id, { order: current.order }),
-    ]);
-    mutate();
+    setError(null);
+    try {
+      await Promise.all([
+        api.programExercises.update(current.id, { order: target.order }),
+        api.programExercises.update(target.id, { order: current.order }),
+      ]);
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   return (
     <div className="flex flex-col gap-6">
+      <ErrorMessage message={error} />
+
       {editingDetails ? (
         <Card className="flex flex-col gap-3">
           <Input value={name} onChange={(e) => setName(e.target.value)} />

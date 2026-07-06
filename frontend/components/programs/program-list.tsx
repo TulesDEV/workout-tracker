@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { describeRecurrence } from "@/lib/recurrence";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input, Textarea } from "@/components/ui/input";
 
 export function ProgramList() {
@@ -16,41 +17,63 @@ export function ProgramList() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
 
   async function createProgram() {
     if (!name.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       await api.programs.create({ name, description });
       setName("");
       setDescription("");
       setCreating(false);
       mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
   }
 
   async function toggleActive(id: number, isActive: boolean) {
-    if (isActive) {
-      await api.programs.deactivate(id);
-    } else {
-      await api.programs.activate(id);
+    setRowError(null);
+    try {
+      if (isActive) {
+        await api.programs.deactivate(id);
+      } else {
+        await api.programs.activate(id);
+      }
+      mutate();
+    } catch (err) {
+      setRowError(getErrorMessage(err));
     }
-    mutate();
   }
 
   async function remove(id: number) {
     if (!confirm("Delete this program?")) return;
-    await api.programs.remove(id);
-    mutate();
+    setRowError(null);
+    try {
+      await api.programs.remove(id);
+      mutate();
+    } catch (err) {
+      setRowError(getErrorMessage(err));
+    }
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Programs</h1>
-        <Button size="sm" variant="secondary" onClick={() => setCreating((v) => !v)}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            setCreating((v) => !v);
+            setError(null);
+          }}
+        >
           {creating ? "Cancel" : "+ New"}
         </Button>
       </div>
@@ -68,6 +91,7 @@ export function ProgramList() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+          <ErrorMessage message={error} />
           <Button size="sm" onClick={createProgram} disabled={saving || !name.trim()}>
             {saving ? "Creating..." : "Create Program"}
           </Button>
@@ -80,6 +104,8 @@ export function ProgramList() {
           description="Create a program, give it a recurrence, and activate it to start tracking."
         />
       )}
+
+      <ErrorMessage message={rowError} />
 
       <div className="flex flex-col gap-3">
         {programs?.map((program) => (

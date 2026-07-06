@@ -3,12 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { formatFriendlyDate } from "@/lib/recurrence";
 import type { Exercise, SetEntry } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CategoryBadge, StatusBadge } from "@/components/ui/badge";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Textarea } from "@/components/ui/input";
 
 interface ExerciseGroup {
@@ -25,6 +26,7 @@ export function SessionTracker({ sessionId }: { sessionId: number }) {
   );
   const [completing, setCompleting] = useState(false);
   const [notes, setNotes] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const groups = useMemo<ExerciseGroup[]>(() => {
     if (!session) return [];
@@ -46,41 +48,63 @@ export function SessionTracker({ sessionId }: { sessionId: number }) {
   const readOnly = session.status === "completed";
 
   async function updateEntry(entry: SetEntry, data: Partial<SetEntry>) {
-    await api.setEntries.update(entry.id, data);
-    mutate();
+    setError(null);
+    try {
+      await api.setEntries.update(entry.id, data);
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function addSet(group: ExerciseGroup) {
     if (!group.exercise) return;
-    const nextSetNumber =
-      Math.max(...group.entries.map((e) => e.set_number), 0) + 1;
-    await api.setEntries.create({
-      session: session!.id,
-      exercise: group.exercise.id,
-      order: group.order,
-      set_number: nextSetNumber,
-    });
-    mutate();
+    setError(null);
+    try {
+      const nextSetNumber =
+        Math.max(...group.entries.map((e) => e.set_number), 0) + 1;
+      await api.setEntries.create({
+        session: session!.id,
+        exercise: group.exercise.id,
+        order: group.order,
+        set_number: nextSetNumber,
+      });
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function removeSet(entry: SetEntry) {
-    await api.setEntries.remove(entry.id);
-    mutate();
+    setError(null);
+    try {
+      await api.setEntries.remove(entry.id);
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function saveNotes() {
     if (notes === null) return;
-    await api.sessions.update(session!.id, { notes });
-    mutate();
+    setError(null);
+    try {
+      await api.sessions.update(session!.id, { notes });
+      mutate();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function complete() {
     setCompleting(true);
+    setError(null);
     try {
       await api.sessions.complete(session!.id);
       await mutate();
       router.push("/history");
-    } finally {
+    } catch (err) {
+      setError(getErrorMessage(err));
       setCompleting(false);
     }
   }
@@ -96,6 +120,8 @@ export function SessionTracker({ sessionId }: { sessionId: number }) {
           <StatusBadge status={session.status} />
         </div>
       </div>
+
+      <ErrorMessage message={error} />
 
       <div className="flex flex-col gap-4">
         {groups.map((group) => (
