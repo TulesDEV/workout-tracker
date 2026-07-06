@@ -3,6 +3,13 @@ FROM node:22-slim
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 
+# Docker builds are isolated from the platform's runtime environment, so a
+# NEXT_PUBLIC_* var set in Railway's dashboard is invisible to `npm run
+# build` unless it's explicitly threaded through as a build ARG here -
+# Next.js inlines NEXT_PUBLIC_* vars at build time, not at container start.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
